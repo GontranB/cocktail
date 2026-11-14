@@ -108,6 +108,7 @@ ol.steps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px}
 .setup .line{display:flex;gap:8px;flex-wrap:wrap}
 .setup input{flex:1 1 200px;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font:400 16px var(--mono)}
 .btn.main{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.5;cursor:default}
 .setup .err{color:var(--warn)}
 body.nodata .search,body.nodata .filters,body.nodata .bar,body.nodata .list{display:none}
 .empty{padding:28px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px}
@@ -119,7 +120,7 @@ body.nodata .search,body.nodata .filters,body.nodata .bar,body.nodata .list{disp
   <header>
     <h1>Carnet de cocktails</h1>
     <div class="fresh"><span id="fresh"><span class="dot"></span>Chargement…</span>
-      <button class="btn" id="refresh" type="button" hidden>Actualiser</button>
+      <button class="btn main" id="refresh" type="button" hidden>Charger depuis Airtable</button>
       <button class="btn" id="tokbtn" type="button" hidden>Jeton</button>
     </div>
   </header>
@@ -331,16 +332,17 @@ async function fetchTable(table, token){
   } while (offset);
   return out;
 }
-let lastRead = 0;
+let lastRead = 0, busy = false;
 async function load(){
   const token = store.get(KEY);
   if (!token){ setFresh("", "Aucun jeton enregistré"); setup(true); return; }
   $("refresh").hidden = false; $("tokbtn").hidden = false;
+  if (busy) return; busy = true; $("refresh").disabled = true;
   setFresh("", "Lecture d'Airtable…");
   try {
     const [a,b] = await Promise.all([fetchTable(T_REC, token), fetchTable(T_ING, token)]);
     lastRead = Date.now(); store.set(CACHE, JSON.stringify({at:lastRead,a,b}));
-    show(a,b); setup(false); setFresh("live", "Airtable · lu le " + when(lastRead));
+    show(a,b); setup(false); memory();
   } catch(e){
     const kept = lastRead ? " Données du " + when(lastRead) + " affichées." : "";
     if (e.status === 401){ setFresh("err", "Jeton refusé par Airtable." + kept); setup(true, "Airtable refuse ce jeton (401). Vérifie qu'il est complet, ou crée-en un nouveau."); }
@@ -349,7 +351,9 @@ async function load(){
     else if (e.status){ setFresh("err", "Airtable a répondu " + e.status + "." + kept); }
     else { setFresh("err", "Airtable injoignable (hors ligne ?)." + kept); }
   }
+  busy = false; $("refresh").disabled = false;
 }
+function memory(){ setFresh("live", "En mémoire sur cet appareil · lu dans Airtable le " + when(lastRead)); }
 $("setup").addEventListener("submit", e => {
   e.preventDefault();
   const v = $("tok").value.trim(); if (!v) return;
@@ -362,7 +366,10 @@ $("refresh").addEventListener("click", load);
 (function boot(){
   document.body.classList.add("nodata");
   try { const c = JSON.parse(store.get(CACHE) || "null"); if (c && c.a){ lastRead = c.at; show(c.a, c.b); } } catch(e){}
-  load();
+  /* Aucun appel à Airtable à l'ouverture : seulement au bouton, ou juste après l'enregistrement du jeton. */
+  if (!store.get(KEY)){ setFresh("", "Aucun jeton enregistré"); setup(true); return; }
+  $("refresh").hidden = false; $("tokbtn").hidden = false;
+  if (lastRead) memory(); else setFresh("", "Rien en mémoire sur cet appareil. Touche Charger depuis Airtable.");
 })();
 </script>
 </body>
