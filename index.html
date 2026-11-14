@@ -102,8 +102,11 @@ ol.steps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px}
 .ing.out{border-color:var(--warn);color:var(--warn)}
 .src{font-size:14px;color:var(--muted);overflow-wrap:anywhere}
 .src a{color:var(--accent)}
-.setup{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:16px;display:flex;flex-direction:column;gap:10px}
-.setup h2{font:700 19px/1.2 var(--display);margin:0}
+details.sync{margin-top:20px;border-top:1px solid var(--line);padding-top:10px}
+details.sync>summary{cursor:pointer;font-size:13px;color:var(--muted)}
+details.sync .inner{display:flex;flex-direction:column;gap:12px;padding-top:12px}
+.setup{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:14px;display:flex;flex-direction:column;gap:10px}
+.setup h2{font:600 15px/1.2 var(--body);margin:0}
 .setup p{margin:0;font-size:14px;color:var(--muted)}
 .setup .line{display:flex;gap:8px;flex-wrap:wrap}
 .setup input{flex:1 1 200px;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font:400 16px var(--mono)}
@@ -119,20 +122,8 @@ body.nodata .search,body.nodata .filters,body.nodata .bar,body.nodata .list{disp
 <div class="wrap">
   <header>
     <h1>Carnet de cocktails</h1>
-    <div class="fresh"><span id="fresh"><span class="dot"></span>Chargement…</span>
-      <button class="btn main" id="refresh" type="button" hidden>Charger depuis Airtable</button>
-      <button class="btn" id="tokbtn" type="button" hidden>Jeton</button>
-    </div>
   </header>
 
-  <form class="setup" id="setup" hidden>
-    <h2>Brancher Airtable</h2>
-    <p>Colle ici un jeton d'accès personnel Airtable en lecture seule (portée data.records:read, limité à la base Cocktails). Il reste dans ce navigateur, sur cet appareil. Il n'est envoyé qu'à api.airtable.com.</p>
-    <div class="line"><input id="tok" type="password" placeholder="pat…" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Jeton Airtable">
-      <button class="btn main" type="submit">Enregistrer</button>
-      <button class="btn" id="forget" type="button" hidden>Oublier le jeton</button></div>
-    <p class="err" id="setuperr" hidden></p>
-  </form>
 
   <input class="search" id="q" type="search" placeholder="Chercher un nom, un ingrédient, une note…" autocomplete="off" aria-label="Recherche">
 
@@ -160,6 +151,22 @@ body.nodata .search,body.nodata .filters,body.nodata .bar,body.nodata .list{disp
 
   <div class="bar"><div class="count" id="count"></div><button class="btn" id="reset" type="button" hidden>Effacer les filtres</button></div>
   <ul class="list" id="list"></ul>
+
+  <details class="sync" id="sync"><summary>Données et synchronisation<span id="syncsum"></span></summary>
+  <div class="inner">
+    <div class="fresh"><span id="fresh"><span class="dot"></span>Chargement…</span>
+      <button class="btn" id="refresh" type="button" hidden>Charger depuis Airtable</button>
+    </div>
+
+  <form class="setup" id="setup">
+    <h2>Jeton Airtable</h2>
+    <p>Colle ici un jeton d'accès personnel Airtable en lecture seule (portée data.records:read, limité à la base Cocktails). Il reste dans ce navigateur, sur cet appareil. Il n'est envoyé qu'à api.airtable.com.</p>
+    <div class="line"><input id="tok" type="password" placeholder="pat…" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Jeton Airtable">
+      <button class="btn main" type="submit">Enregistrer</button>
+      <button class="btn" id="forget" type="button" hidden>Oublier le jeton</button></div>
+    <p class="err" id="setuperr" hidden></p>
+  </form>
+  </div></details>
 </div>
 
 <script>
@@ -311,11 +318,15 @@ const store = {
   set(k,v){ try { localStorage.setItem(k,v); return true; } catch(e){ return false; } },
   del(k){ try { localStorage.removeItem(k); } catch(e){} }
 };
-function setFresh(kind, text){ $("fresh").innerHTML = `<span class="dot ${kind}"></span>${esc(text)}`; }
+function setFresh(kind, text){
+  $("fresh").innerHTML = `<span class="dot ${kind}"></span>${esc(text)}`;
+  $("syncsum").textContent = kind === "err" ? " · à vérifier" : "";
+  if (kind === "err") $("sync").open = true;
+}
 const when = t => new Date(t).toLocaleString("fr-CA",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
 function show(a, b){ recipes = normRecipes(a); ings = normIngs(b); reindex(); document.body.classList.toggle("nodata", !recipes.length); render(); }
 function setup(open, msg){
-  $("setup").hidden = !open; $("forget").hidden = !store.get(KEY);
+  if (open) $("sync").open = true; $("forget").hidden = !store.get(KEY);
   $("setuperr").hidden = !msg; $("setuperr").textContent = msg || "";
 }
 async function fetchTable(table, token){
@@ -336,7 +347,7 @@ let lastRead = 0, busy = false;
 async function load(){
   const token = store.get(KEY);
   if (!token){ setFresh("", "Aucun jeton enregistré"); setup(true); return; }
-  $("refresh").hidden = false; $("tokbtn").hidden = false;
+  $("refresh").hidden = false;
   if (busy) return; busy = true; $("refresh").disabled = true;
   setFresh("", "Lecture d'Airtable…");
   try {
@@ -353,23 +364,22 @@ async function load(){
   }
   busy = false; $("refresh").disabled = false;
 }
-function memory(){ setFresh("live", "En mémoire sur cet appareil · lu dans Airtable le " + when(lastRead)); }
+function memory(){ setFresh("live", "En mémoire sur cet appareil · lu dans Airtable le " + when(lastRead)); $("syncsum").textContent = " · lu le " + when(lastRead); $("forget").hidden = false; }
 $("setup").addEventListener("submit", e => {
   e.preventDefault();
   const v = $("tok").value.trim(); if (!v) return;
   if (!store.set(KEY, v)){ setup(true, "Ce navigateur refuse d'enregistrer le jeton (navigation privée ?)."); return; }
   $("tok").value = ""; load();
 });
-$("forget").addEventListener("click", () => { store.del(KEY); store.del(CACHE); lastRead = 0; show([],[]); $("refresh").hidden = true; $("tokbtn").hidden = true; setFresh("", "Jeton et données effacés de cet appareil"); setup(true); });
-$("tokbtn").addEventListener("click", () => setup($("setup").hidden));
+$("forget").addEventListener("click", () => { store.del(KEY); store.del(CACHE); lastRead = 0; show([],[]); $("refresh").hidden = true; setFresh("", "Jeton et données effacés de cet appareil"); setup(true); });
 $("refresh").addEventListener("click", load);
 (function boot(){
   document.body.classList.add("nodata");
   try { const c = JSON.parse(store.get(CACHE) || "null"); if (c && c.a){ lastRead = c.at; show(c.a, c.b); } } catch(e){}
   /* Aucun appel à Airtable à l'ouverture : seulement au bouton, ou juste après l'enregistrement du jeton. */
   if (!store.get(KEY)){ setFresh("", "Aucun jeton enregistré"); setup(true); return; }
-  $("refresh").hidden = false; $("tokbtn").hidden = false;
-  if (lastRead) memory(); else setFresh("", "Rien en mémoire sur cet appareil. Touche Charger depuis Airtable.");
+  $("refresh").hidden = false;
+  if (lastRead) memory(); else { setFresh("", "Rien en mémoire sur cet appareil. Touche Charger depuis Airtable."); $("sync").open = true; }
 })();
 </script>
 </body>
