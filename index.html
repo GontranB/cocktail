@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carnet de cocktails</title>
+<meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cocktails">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Idée : un carnet de bar. Colonne unique pensée pour le téléphone, filtres en pastilles
+   en haut, fiches dépliables dessous. Les doses s'alignent comme une spec de bar. */
+:root{
+  --bg:#edf0ea; --surface:#f9faf6; --sunk:#e3e8e0; --ink:#1b2420; --muted:#58665f; --line:#cfd6cb;
+  --accent:#b1132f; --accent-ink:#ffffff; --accent-soft:#f3dadd;
+  --ok:#1c7548; --warn:#8f5c00; --todo:#345c8c;
+  --display:"Bricolage Grotesque","Avenir Next","Segoe UI",sans-serif;
+  --body:"IBM Plex Sans",-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#131816; --surface:#1b2220; --sunk:#232c29; --ink:#e7ece6; --muted:#98a69e; --line:#2f3a35;
+    --accent:#ff7085; --accent-ink:#1d0a0e; --accent-soft:#3a1c22;
+    --ok:#62c692; --warn:#e2b253; --todo:#93b8e2; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#131816; --surface:#1b2220; --sunk:#232c29; --ink:#e7ece6; --muted:#98a69e; --line:#2f3a35;
+  --accent:#ff7085; --accent-ink:#1d0a0e; --accent-soft:#3a1c22;
+  --ok:#62c692; --warn:#e2b253; --todo:#93b8e2; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.5 var(--body)}
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px 56px;display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-direction:column;gap:6px}
+h1{font:700 30px/1.1 var(--display);margin:0;letter-spacing:-.01em;text-wrap:balance}
+.fresh{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;font-size:13px;color:var(--muted)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);margin-right:6px}
+.dot.live{background:var(--ok)} .dot.err{background:var(--warn)}
+button,select,input{font:inherit;color:inherit}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.search{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-size:16px}
+.search::placeholder{color:var(--muted)}
+.filters{display:flex;flex-direction:column;gap:12px}
+.group{display:flex;flex-direction:column;gap:6px;min-width:0}
+.glabel{font:500 12px/1 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.glabel small{text-transform:none;letter-spacing:0;font-weight:400}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 16px 4px;margin:0 -16px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 12px;font-size:14px;line-height:1.2;cursor:pointer;white-space:nowrap}
+.chip .n{font:400 12px var(--mono);color:var(--muted);margin-left:6px}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip[aria-pressed="true"] .n{color:inherit;opacity:.8}
+.chip.zero{opacity:.45}
+.toggle{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);cursor:pointer}
+.toggle input{width:18px;height:18px;accent-color:var(--accent);flex:none}
+.toggle span small{display:block;color:var(--muted);font-size:13px}
+details.more{border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+details.more>summary{padding:10px 12px;cursor:pointer;font-weight:500;font-size:15px}
+details.more .inner{padding:4px 12px 14px;display:flex;flex-direction:column;gap:12px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:420px){.row2{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field select{padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);width:100%;font-size:16px}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding-top:12px}
+.count{font:500 15px var(--body)} .count b{font:700 20px var(--display);font-variant-numeric:tabular-nums}
+.list{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.card>details>summary{list-style:none;cursor:pointer;padding:14px 14px 12px;display:flex;flex-direction:column;gap:8px}
+.card>details>summary::-webkit-details-marker{display:none}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.name{font:700 19px/1.2 var(--display);margin:0;text-wrap:balance;overflow-wrap:anywhere}
+.stars{flex:none;font:500 13px var(--mono);color:var(--muted);white-space:nowrap;padding-top:3px}
+.stars b{color:var(--accent);letter-spacing:1px;font-weight:400}
+.meta{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;font-size:13px;color:var(--muted)}
+.pill{font-size:12px;font-weight:600;border-radius:999px;padding:3px 9px;border:1px solid currentColor;white-space:nowrap}
+.pill.ok{color:var(--ok)} .pill.warn{color:var(--warn)} .pill.todo{color:var(--todo)}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{font-size:12px;background:var(--sunk);border-radius:6px;padding:2px 8px}
+.miss{font-size:13px;color:var(--warn)}
+.open-hint{font-size:13px;color:var(--muted)}
+details[open]>summary .open-hint{display:none}
+.body{border-top:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:18px}
+.body h3{font:500 12px/1 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.spec{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.spec li{display:grid;grid-template-columns:minmax(74px,max-content) 1fr;gap:12px;align-items:baseline}
+.spec .q{font:500 14px var(--mono);font-variant-numeric:tabular-nums;text-align:right;color:var(--accent);white-space:nowrap}
+.spec li.full{display:block;padding-left:0}
+.spec li.sub{display:block;font-weight:600;margin-top:8px}
+.spec li.gap{height:6px}
+.spec li.ref{display:block;margin-top:8px;font-size:13px;color:var(--muted);border-left:2px solid var(--line);padding-left:10px}
+ol.steps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px}
+.notes{white-space:pre-wrap;font-size:15px;line-height:1.55;background:var(--sunk);border-radius:8px;padding:12px;overflow-wrap:anywhere;max-width:68ch}
+.ings{display:flex;flex-wrap:wrap;gap:6px}
+.ing{font-size:13px;border:1px solid var(--line);border-radius:6px;padding:2px 8px}
+.ing.out{border-color:var(--warn);color:var(--warn)}
+.src{font-size:14px;color:var(--muted);overflow-wrap:anywhere}
+.src a{color:var(--accent)}
+.setup{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:16px;display:flex;flex-direction:column;gap:10px}
+.setup h2{font:700 19px/1.2 var(--display);margin:0}
+.setup p{margin:0;font-size:14px;color:var(--muted)}
+.setup .line{display:flex;gap:8px;flex-wrap:wrap}
+.setup input{flex:1 1 200px;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font:400 16px var(--mono)}
+.btn.main{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.setup .err{color:var(--warn)}
+body.nodata .search,body.nodata .filters,body.nodata .bar,body.nodata .list{display:none}
+.empty{padding:28px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px}
+@media (prefers-reduced-motion:no-preference){.chip,.btn{transition:background .12s,border-color .12s}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Carnet de cocktails</h1>
+    <div class="fresh"><span id="fresh"><span class="dot"></span>Chargement…</span>
+      <button class="btn" id="refresh" type="button" hidden>Actualiser</button>
+      <button class="btn" id="tokbtn" type="button" hidden>Jeton</button>
+    </div>
+  </header>
+
+  <form class="setup" id="setup" hidden>
+    <h2>Brancher Airtable</h2>
+    <p>Colle ici un jeton d'accès personnel Airtable en lecture seule (portée data.records:read, limité à la base Cocktails). Il reste dans ce navigateur, sur cet appareil. Il n'est envoyé qu'à api.airtable.com.</p>
+    <div class="line"><input id="tok" type="password" placeholder="pat…" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Jeton Airtable">
+      <button class="btn main" type="submit">Enregistrer</button>
+      <button class="btn" id="forget" type="button" hidden>Oublier le jeton</button></div>
+    <p class="err" id="setuperr" hidden></p>
+  </form>
+
+  <input class="search" id="q" type="search" placeholder="Chercher un nom, un ingrédient, une note…" autocomplete="off" aria-label="Recherche">
+
+  <div class="filters">
+    <label class="toggle" for="stock"><input type="checkbox" id="stock">
+      <span>Réalisables maintenant<small id="stockhint">Tous les ingrédients liés sont cochés En stock</small></span></label>
+    <div class="group"><div class="glabel">Statut</div><div class="chips" id="g-statut"></div></div>
+    <div class="group"><div class="glabel">Base</div><div class="chips" id="g-base"></div></div>
+    <div class="group"><div class="glabel">Profil <small>· la recette doit avoir tous les profils choisis</small></div><div class="chips" id="g-profil"></div></div>
+    <details class="more" id="more"><summary>Plus de filtres et tri</summary>
+      <div class="inner">
+        <div class="group"><div class="glabel">Méthode</div><div class="chips" id="g-methode"></div></div>
+        <div class="group"><div class="glabel">Type</div><div class="chips" id="g-type"></div></div>
+        <div class="group"><div class="glabel">Verre</div><div class="chips" id="g-verre"></div></div>
+        <div class="row2">
+          <div class="field"><label class="glabel" for="ingsel">Contient l'ingrédient</label><select id="ingsel"></select></div>
+          <div class="field"><label class="glabel" for="notesel">Note</label>
+            <select id="notesel"><option value="0">Toutes</option><option value="5">5 étoiles</option><option value="4">4 étoiles et plus</option><option value="3">3 étoiles et plus</option><option value="-1">Pas encore notée</option></select></div>
+        </div>
+        <div class="field"><label class="glabel" for="sortsel">Tri</label>
+          <select id="sortsel"><option value="date">Ajout le plus récent</option><option value="note">Meilleure note</option><option value="nom">Nom, A à Z</option></select></div>
+      </div>
+    </details>
+  </div>
+
+  <div class="bar"><div class="count" id="count"></div><button class="btn" id="reset" type="button" hidden>Effacer les filtres</button></div>
+  <ul class="list" id="list"></ul>
+</div>
+
+<script>
+const BASE = "appFuDYxzQGBrwPXQ", T_REC = "tbl0PFguk1wVIX6pU", T_ING = "tblvk1XDbgkKZnGMq";
+const F = {nom:"fldD4ZvDQaZI7Mfds",statut:"fldj2WkZZMm5jq5su",type:"flddPNGefYqAgN09C",base:"fldnCpoXTPcmYEaB3",prop:"fldIQalz5hs2fnKCc",etapes:"fldOq0becs2NW9ZjU",methode:"fldGAgSdbGM760rB3",verre:"fld9sY3a8Fe8wP27E",profil:"fld8OcfMKDmIykMYh",note:"fldihFd8wAY6DsBs0",source:"fldTG2mraWUT2rpad",lien:"flddnbBrJ9nKESUa8",ajust:"fldFSxDEJ1G7ef7Op",date:"fldcM3eiXkS9ktlxh",ing:"fldwDEuFrWcuy6I6p"};
+const FI = {nom:"fldbWONlOu5gkdkAl",cat:"fld74F0yvcblClRZY",stock:"fldtvNMcThG60FPFj"};
+const IN_REC = {baseId:BASE,tableId:T_REC,pageSize:500,fieldIds:["Nom","Statut","Type","Base","Proportions","Étapes","Méthode","Verre","Profil","Note","Source","Lien","Ajustements","Date d'ajout","Ingrédients"]};
+const IN_ING = {baseId:BASE,tableId:T_ING,pageSize:1000,fieldIds:["Nom","Catégorie","En stock"]};
+const TOOL = "list_records_for_table", SERVER = "Airtable";
+
+let recipes = [], ings = [], ingMap = new Map();
+const state = {q:"",stock:false,statut:new Set(),base:new Set(),profil:new Set(),methode:new Set(),type:new Set(),verre:new Set(),ing:"",note:0,sort:"date"};
+const openIds = new Set();
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fold = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
+const sel = v => (v && typeof v === "object") ? (v.name || "") : (v || "");
+const cmp = (a,b) => a.localeCompare(b,"fr",{sensitivity:"base"});
+
+function normRecipes(records){
+  return records.map(r => { const c = r.cellValuesByFieldId || {}; return {
+    id:r.id, nom:(c[F.nom]||"").trim(), statut:sel(c[F.statut]), type:sel(c[F.type]), base:sel(c[F.base]),
+    methode:sel(c[F.methode]), verre:sel(c[F.verre]), profil:(c[F.profil]||[]).map(sel), note:c[F.note]||0,
+    source:c[F.source]||"", lien:c[F.lien]||"", date:c[F.date]||"", prop:c[F.prop]||"", etapes:c[F.etapes]||"", ajust:c[F.ajust]||"",
+    ing:(c[F.ing]||[]).map(x => typeof x === "string" ? x : x.id)
+  };});
+}
+function normIngs(records){
+  return records.map(r => { const c = r.cellValuesByFieldId || {}; return {id:r.id,nom:c[FI.nom]||"",cat:sel(c[FI.cat]),stock:!!c[FI.stock]}; });
+}
+function reindex(){
+  ingMap = new Map(ings.map(i => [i.id,i]));
+  for (const r of recipes){
+    r.ingList = r.ing.map(id => ingMap.get(id) || {id,nom:(r.ingNames&&r.ingNames[id])||"?",stock:true,unknown:true});
+    r.missing = r.ingList.filter(i => !i.stock).map(i => i.nom);
+    r.hay = fold([r.nom,r.statut,r.type,r.base,r.methode,r.verre,r.profil.join(" "),r.source,r.prop,r.etapes,r.ajust,r.ingList.map(i=>i.nom).join(" ")].join(" \n "));
+  }
+}
+
+const GROUPS = ["statut","base","profil","methode","type","verre"];
+function pass(r, skip){
+  if (state.q){ for (const w of fold(state.q).split(/\s+/).filter(Boolean)) if (!r.hay.includes(w)) return false; }
+  if (state.stock && r.missing.length) return false;
+  for (const g of GROUPS){
+    if (g === skip || !state[g].size) continue;
+    if (g === "profil"){ for (const p of state.profil) if (!r.profil.includes(p)) return false; }
+    else if (!state[g].has(r[g])) return false;
+  }
+  if (state.ing && !r.ing.includes(state.ing)) return false;
+  if (state.note > 0 && r.note < state.note) return false;
+  if (state.note === -1 && r.note) return false;
+  return true;
+}
+function options(g){
+  const s = new Set();
+  for (const r of recipes){ if (g === "profil") r.profil.forEach(p => s.add(p)); else if (r[g]) s.add(r[g]); }
+  for (const v of state[g]) s.add(v);
+  return [...s].sort(cmp);
+}
+function renderChips(){
+  for (const g of GROUPS){
+    const base = recipes.filter(r => pass(r, g));
+    $("g-"+g).innerHTML = options(g).map(v => {
+      const on = state[g].has(v);
+      const n = base.filter(r => {
+        if (g !== "profil") return r[g] === v;
+        if (!r.profil.includes(v)) return false;
+        for (const p of state.profil) if (!r.profil.includes(p)) return false;
+        return true;
+      }).length;
+      return `<button type="button" class="chip${n?"":" zero"}" data-g="${g}" data-v="${esc(v)}" aria-pressed="${on}">${esc(v)}<span class="n">${n}</span></button>`;
+    }).join("");
+  }
+}
+function renderIngSelect(){
+  const used = new Map();
+  for (const r of recipes) for (const i of r.ingList) used.set(i.id, i.nom);
+  const opts = [...used].sort((a,b) => cmp(a[1],b[1]));
+  $("ingsel").innerHTML = `<option value="">Tous</option>` + opts.map(([id,n]) => `<option value="${esc(id)}"${state.ing===id?" selected":""}>${esc(n)}</option>`).join("");
+}
+const STATUS = {"Validée":"ok","Testée – à ajuster":"warn","À tester":"todo"};
+function stars(n){ return n ? `<span class="stars" aria-label="${n} sur 5"><b>${"★".repeat(n)}</b>${"☆".repeat(5-n)}</span>` : `<span class="stars">non notée</span>`; }
+function propHTML(t){
+  return t.split("\n").map(l => {
+    const s = l.trim();
+    if (!s) return `<li class="gap"></li>`;
+    if (/^Spec de référence/i.test(s)) return `<li class="ref">${esc(s)}</li>`;
+    if (/:$/.test(s)) return `<li class="sub">${esc(s)}</li>`;
+    const m = s.match(/^(\d[\d ,\/]*(?:à ?\d[\d ,\/]*)?(?:ml|traits?|tranches?|pincée|quartier|c\. à thé)?(?: \([^)]*\))?)\s+(.+)$/);
+    if (m && /\d/.test(m[1])) return `<li><span class="q">${esc(m[1].trim())}</span><span>${esc(m[2])}</span></li>`;
+    return `<li><span class="q"></span><span>${esc(s)}</span></li>`;
+  }).join("");
+}
+function stepsHTML(t){
+  const lines = t.split("\n").map(s => s.trim()).filter(Boolean);
+  return `<ol class="steps">` + lines.map(l => `<li>${esc(l.replace(/^\d+[\.\)]\s*/,""))}</li>`).join("") + `</ol>`;
+}
+function fmtDate(d){ if (!d) return ""; const x = new Date(d+"T12:00:00"); return isNaN(x) ? d : x.toLocaleDateString("fr-CA",{day:"numeric",month:"long",year:"numeric"}); }
+function card(r){
+  const meta = [r.base, r.methode, r.verre].filter(Boolean).map(esc).join(" · ");
+  const link = /^https?:\/\//.test(r.lien) ? ` <a href="${esc(r.lien)}" target="_blank" rel="noopener">Ouvrir la source</a>` : "";
+  return `<li class="card"><details data-id="${esc(r.id)}"${openIds.has(r.id)?" open":""}>
+    <summary>
+      <div class="top"><h2 class="name">${esc(r.nom)}</h2>${stars(r.note)}</div>
+      <div class="meta">${r.statut?`<span class="pill ${STATUS[r.statut]||"todo"}">${esc(r.statut)}</span>`:""}<span>${meta}</span></div>
+      ${r.profil.length?`<div class="tags">${r.profil.map(p=>`<span class="tag">${esc(p)}</span>`).join("")}</div>`:""}
+      ${r.missing.length?`<div class="miss">Manque au bar : ${r.missing.map(esc).join(", ")}</div>`:""}
+      <div class="open-hint">Toucher pour voir la recette</div>
+    </summary>
+    <div class="body">
+      ${r.prop?`<section><h3>Proportions</h3><ul class="spec">${propHTML(r.prop)}</ul></section>`:""}
+      ${r.etapes?`<section><h3>Étapes</h3>${stepsHTML(r.etapes)}</section>`:""}
+      ${r.ajust?`<section><h3>Ajustements</h3><div class="notes">${esc(r.ajust.trim())}</div></section>`:""}
+      ${r.ingList.length?`<section><h3>Ingrédients liés</h3><div class="ings">${r.ingList.map(i=>`<span class="ing${i.stock?"":" out"}">${esc(i.nom)}${i.stock?"":" · pas en stock"}</span>`).join("")}</div></section>`:""}
+      <section class="src">${r.type?esc(r.type)+". ":""}${esc(r.source)}${link}${r.date?`<br>Ajoutée le ${esc(fmtDate(r.date))}`:""}</section>
+    </div></details></li>`;
+}
+function active(){ return state.q || state.stock || state.ing || state.note || GROUPS.some(g => state[g].size); }
+function render(){
+  renderChips(); renderIngSelect();
+  const out = recipes.filter(r => pass(r));
+  out.sort((a,b) => state.sort === "nom" ? cmp(a.nom,b.nom) : state.sort === "note" ? (b.note-a.note) || cmp(a.nom,b.nom) : (b.date||"").localeCompare(a.date||"") || cmp(a.nom,b.nom));
+  $("count").innerHTML = `<b>${out.length}</b> ${out.length>1?"recettes":"recette"} sur ${recipes.length}`;
+  $("reset").hidden = !active();
+  $("list").innerHTML = out.length ? out.map(card).join("") : `<li class="empty">Aucune recette ne correspond à ces filtres. Retire un profil ou efface les filtres.</li>`;
+  const nOut = ings.filter(i => !i.stock).length;
+  $("stockhint").textContent = `Tous les ingrédients liés sont cochés En stock · ${recipes.filter(r=>!r.missing.length).length} recettes sur ${recipes.length}, ${nOut} ingrédients hors stock`;
+}
+
+document.addEventListener("click", e => {
+  const c = e.target.closest(".chip"); if (!c) return;
+  const s = state[c.dataset.g], v = c.dataset.v; s.has(v) ? s.delete(v) : s.add(v); render();
+});
+$("list").addEventListener("toggle", e => { const d = e.target; if (d.dataset && d.dataset.id) d.open ? openIds.add(d.dataset.id) : openIds.delete(d.dataset.id); }, true);
+$("q").addEventListener("input", e => { state.q = e.target.value; render(); });
+$("stock").addEventListener("change", e => { state.stock = e.target.checked; render(); });
+$("ingsel").addEventListener("change", e => { state.ing = e.target.value; render(); });
+$("notesel").addEventListener("change", e => { state.note = +e.target.value; render(); });
+$("sortsel").addEventListener("change", e => { state.sort = e.target.value; render(); });
+$("reset").addEventListener("click", () => {
+  state.q = ""; state.stock = false; state.ing = ""; state.note = 0; GROUPS.forEach(g => state[g].clear());
+  $("q").value = ""; $("stock").checked = false; $("notesel").value = "0"; render();
+});
+
+/* ---- Données : lues dans Airtable avec un jeton gardé dans ce navigateur. Rien de personnel dans ce fichier. ---- */
+const KEY = "carnet.airtable.pat", CACHE = "carnet.cache.v1";
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k,v); return true; } catch(e){ return false; } },
+  del(k){ try { localStorage.removeItem(k); } catch(e){} }
+};
+function setFresh(kind, text){ $("fresh").innerHTML = `<span class="dot ${kind}"></span>${esc(text)}`; }
+const when = t => new Date(t).toLocaleString("fr-CA",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+function show(a, b){ recipes = normRecipes(a); ings = normIngs(b); reindex(); document.body.classList.toggle("nodata", !recipes.length); render(); }
+function setup(open, msg){
+  $("setup").hidden = !open; $("forget").hidden = !store.get(KEY);
+  $("setuperr").hidden = !msg; $("setuperr").textContent = msg || "";
+}
+async function fetchTable(table, token){
+  let out = [], offset = "";
+  do {
+    const u = new URL(`https://api.airtable.com/v0/${BASE}/${table}`);
+    u.searchParams.set("pageSize","100"); u.searchParams.set("returnFieldsByFieldId","true");
+    if (offset) u.searchParams.set("offset", offset);
+    const res = await fetch(u, {headers:{Authorization:"Bearer " + token}});
+    if (!res.ok){ const e = new Error("http"); e.status = res.status; throw e; }
+    const j = await res.json();
+    out = out.concat((j.records||[]).map(r => ({id:r.id, cellValuesByFieldId:r.fields||{}})));
+    offset = j.offset || "";
+  } while (offset);
+  return out;
+}
+let lastRead = 0;
+async function load(){
+  const token = store.get(KEY);
+  if (!token){ setFresh("", "Aucun jeton enregistré"); setup(true); return; }
+  $("refresh").hidden = false; $("tokbtn").hidden = false;
+  setFresh("", "Lecture d'Airtable…");
+  try {
+    const [a,b] = await Promise.all([fetchTable(T_REC, token), fetchTable(T_ING, token)]);
+    lastRead = Date.now(); store.set(CACHE, JSON.stringify({at:lastRead,a,b}));
+    show(a,b); setup(false); setFresh("live", "Airtable · lu le " + when(lastRead));
+  } catch(e){
+    const kept = lastRead ? " Données du " + when(lastRead) + " affichées." : "";
+    if (e.status === 401){ setFresh("err", "Jeton refusé par Airtable." + kept); setup(true, "Airtable refuse ce jeton (401). Vérifie qu'il est complet, ou crée-en un nouveau."); }
+    else if (e.status === 403 || e.status === 404){ setFresh("err", "Accès refusé à la base." + kept); setup(true, "Le jeton n'a pas accès à la base Cocktails (" + e.status + "). Ajoute la base et la portée data.records:read au jeton."); }
+    else if (e.status === 429){ setFresh("err", "Trop de requêtes, réessaie dans 30 secondes." + kept); }
+    else if (e.status){ setFresh("err", "Airtable a répondu " + e.status + "." + kept); }
+    else { setFresh("err", "Airtable injoignable (hors ligne ?)." + kept); }
+  }
+}
+$("setup").addEventListener("submit", e => {
+  e.preventDefault();
+  const v = $("tok").value.trim(); if (!v) return;
+  if (!store.set(KEY, v)){ setup(true, "Ce navigateur refuse d'enregistrer le jeton (navigation privée ?)."); return; }
+  $("tok").value = ""; load();
+});
+$("forget").addEventListener("click", () => { store.del(KEY); store.del(CACHE); lastRead = 0; show([],[]); $("refresh").hidden = true; $("tokbtn").hidden = true; setFresh("", "Jeton et données effacés de cet appareil"); setup(true); });
+$("tokbtn").addEventListener("click", () => setup($("setup").hidden));
+$("refresh").addEventListener("click", load);
+(function boot(){
+  document.body.classList.add("nodata");
+  try { const c = JSON.parse(store.get(CACHE) || "null"); if (c && c.a){ lastRead = c.at; show(c.a, c.b); } } catch(e){}
+  load();
+})();
+</script>
+</body>
+</html>
